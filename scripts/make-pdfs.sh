@@ -2,7 +2,7 @@
 # 학습 페이지 → 인쇄용 PDF 생성 (WSL에서 Windows Chrome 사용). 콘텐츠 수정 후 재실행해 pdf/ 갱신.
 set -e
 CHROME="/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
-BASE="https://axis.tesorae.com"
+BASE="${BASE:-https://rhodewhalin.github.io/axis-public}"
 declare -A PAGES=(
   [warmup]="/modules/warmup.html"
   [module-0]="/modules/00-orientation.html"
@@ -13,6 +13,7 @@ declare -A PAGES=(
   [module-5]="/modules/05-rag-agent.html"
   [module-6]="/modules/06-evaluation.html"
   [module-7]="/modules/07-hw-ecosystem.html"
+  [module-8]="/modules/08-distributed-cloud.html"
   [glossary]="/modules/09-glossary.html"
   [selfcheck]="/modules/08-selfcheck.html"
 )
