@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>타임라인 — AXIS 학습 세션</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .tl { position: relative; margin: 2rem 0; padding-left: 1.6rem; border-left: 3px solid var(--card-border); }
+  .tl-month { position: relative; margin: 2.2rem 0 0.8rem; }
+  .tl-month::before { content: ''; position: absolute; left: -2.25rem; top: 0.5em; width: 13px; height: 13px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 2px var(--accent); }
+  .tl-item { margin: 0.6rem 0; }
+  .tl-item .who { font-size: 0.78rem; font-weight: 800; color: var(--accent2); letter-spacing: 0.04em; margin-right: 0.4rem; }
+  .tl-item .lv { font-size: 0.8rem; color: var(--accent); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="../index.html">← 전체 목차</a>
+  <span class="mod-label">TIMELINE · 연구회 일정</span>
+</nav>
+
+<div class="wrap">
+
+<span class="badge">TIMELINE</span>
+<h1>연구회 타임라인 — 7월부터 12월까지</h1>
+<p class="lead">우리가 어디까지 왔고 다음에 무엇을 하는지 한눈에 봅니다. 각 달의 활동이 끝나면 답할 수 있어야 하는 <strong>레벨 질문</strong>이 함께 붙어 있습니다. 진행 상태 관리(완료 체크·일정 변경)는 회원 전용 실습 플랫폼의 타임라인에서 합니다 — 접속 방법은 모임에서 안내합니다.</p>
+
+<div class="tl">
+
+<h2 class="tl-month">7월 — 시작과 조준 <span class="lv">Level 1·2</span></h2>
+<div class="card tl-item"><span class="who">전원</span>킥오프 미팅 — 하반기 운영 방식 합의</div>
+<div class="card tl-item"><span class="who">전원</span>학습 사이트 모듈 0~2 자습 + 퀴즈 (진행 코드 등록)</div>
+<div class="card tl-item"><span class="who">전원</span>업무 자동화 주제 제안서 제출 (사전 필터 2문항 통과)</div>
+<div class="card tl-item"><span class="who">전원</span>공통 실증 태스크 2개 선정 + 역할 분담</div>
+<div class="card tl-item"><span class="who">리더</span>공유 서버 1차 모델 서빙 + 성능 실측</div>
+
+<h2 class="tl-month">8월 — 산정과 첫 호출 <span class="lv">Level 3·4</span></h2>
+<div class="card tl-item"><span class="who">세션</span>산정 교육(90분): VRAM 손계산 → 계산기 검산 → 서버 실측 대조 → API 첫 호출</div>
+<div class="card tl-item"><span class="who">전원</span>모듈 3~4 자습 (세션 전 선행)</div>
+<div class="card tl-item"><span class="who">전원</span>공통 태스크 프로토타입 1차</div>
+<div class="card tl-item"><span class="who">전원</span>중간발표(교류회) — "구형 GPU 24GB로 어디까지 되는가, 실측"</div>
+
+<h2 class="tl-month">9월 — 측정의 달 <span class="lv">Level 5</span></h2>
+<div class="card tl-item"><span class="who">세션</span>골든셋 스프린트(120분): 분포 읽기 → 합성 사례 생성 → 교차 검수 → v1 동결</div>
+<div class="card tl-item"><span class="who">전원</span>모델 비교 평가 + 선정 사유서 작성</div>
+
+<h2 class="tl-month">10월 — 완료를 의심하라 <span class="lv">Level 6</span></h2>
+<div class="card tl-item"><span class="who">세션</span>검증 게이트 워크숍(120분): 완료 조건 도출 → 게이트 삽입 → 게이트 검증</div>
+<div class="card tl-item"><span class="who">전원</span>PoC 실행 + 운영 리스크 기록</div>
+
+<h2 class="tl-month">11월 — 조립과 제출 <span class="lv">6레벨 통합</span></h2>
+<div class="card tl-item"><span class="who">세션</span>정리·보고 세션(120분): 성과 수치 확정(ROI) → 보고서 조립 → 발표 리허설</div>
+<div class="card tl-item"><span class="who">전원</span>결과보고서 제출 (11/30)</div>
+
+<h2 class="tl-month">12월 — 무대</h2>
+<div class="card tl-item"><span class="who">전원</span>우수 CoP 경진대회 — 6레벨 분담 발표</div>
+
+</div>
+
+<div class="axis-box">
+이 일정의 살아 있는 버전(진행 상태·완료 체크)은 회원 전용 실습 플랫폼(사내 접속)의 <strong>타임라인</strong> 메뉴에 있습니다. 이 페이지의 퀴즈 진행 코드를 플랫폼 대시보드에 등록하면 학습 진행도 계정에 함께 기록됩니다.
+</div>
+
+<div class="pager">
+  <a href="../index.html"><span class="dir">← 돌아가기</span>전체 목차</a>
+  <a class="next" href="00-orientation.html"><span class="dir">시작 →</span>모듈 0 · 왜 폐쇄망 로컬 AI인가</a>
+</div>
+
+</div>
+
+</body>
+</html>

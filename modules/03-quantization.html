@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>모듈 3 · 양자화 — AXIS 학습 세션</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+.calc-card { display: flex; flex-direction: column; gap: 1rem; }
+.calc-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.calc-row label { color: var(--text-dim); font-size: 0.95rem; }
+.calc-row input, .calc-row select {
+  background: var(--bg-soft);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+  font: inherit;
+  min-width: 210px;
+}
+.calc-row input:focus, .calc-row select:focus { outline: none; border-color: var(--accent); }
+.calc-result { margin-top: 0.3rem; padding: 1rem 1.2rem; border-radius: 10px; background: var(--bg-soft); border: 1px solid var(--card-border); font-size: 1rem; line-height: 1.6; }
+.calc-note { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.2rem; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="../index.html">← 전체 목차</a>
+  <span class="mod-label">MODULE 03 · 양자화</span>
+</nav>
+
+<div class="wrap">
+
+<span class="badge">MODULE 03</span>
+<h1>품질을 조금 양보하고 속도와 메모리를 얻는 법</h1>
+<p class="lead">모델의 크기를 줄이는 기술인 양자화를 다룹니다. 얼마나 줄일 수 있고, 그 대가로 무엇을 내주는지, 그리고 내 장비에 실제로 들어가는지를 직접 계산해보는 것까지가 이번 모듈의 목표입니다.</p>
+
+<h2><span class="num">01</span>모델의 무게는 어디서 오나</h2>
+
+<p>모델 파일의 실체는 <strong>수십억 개의 숫자(파라미터) 덩어리</strong>입니다. 이 숫자 하나하나를 몇 비트(bit, 0 또는 1 하나를 담는 가장 작은 저장 단위)로 저장하느냐가 파일 크기, 즉 우리가 흔히 말하는 "모델의 무게"를 결정합니다. (단위 감각이 더 필요하면 <a href="warmup.html">워밍업</a>을 참고하세요.)</p>
+
+<p>지금까지 다뤄온 기본 정밀도는 <strong>FP16(FP=부동소수점, 소수점 위치를 유동적으로 표현하는 방식 중 16비트짜리)</strong>입니다. 8비트를 묶은 것이 1바이트이므로 16비트는 2바이트이고, 대략 파라미터 수 × 2바이트로 계산하면 되는데, 이 기준으로는 <strong>7B(=70억 개) 모델이 약 14GB, 30B(=300억 개) 모델이 약 60GB</strong>에 이릅니다.</p>
+
+<p>문제는 여기서 시작됩니다. 게이밍 노트북의 VRAM은 보통 8~12GB 수준이라, <strong>가장 작은 축인 7B 모델조차 그대로는 빠듯합니다.</strong> 그래서 파일 크기를 줄이는 방법이 필요해지는데, 그 답이 이번 모듈의 주제인 양자화입니다.</p>
+
+<h2><span class="num">02</span>양자화 = 정밀한 반올림</h2>
+
+<p><strong>양자화(quantization)</strong>는 각 숫자를 표현하는 데 쓰는 비트 수를 줄이는 작업입니다. 16비트를 8비트(Q8)로, 다시 4비트(Q4)로 낮추면 파일 크기는 각각 절반, 1/4로 줄어듭니다.</p>
+
+<div class="analogy">
+원주율 3.14159265를 3.14로 적는 것과 비슷합니다. 대부분의 계산에서는 둘의 차이가 드러나지 않지만, 아주 미세한 구분이 필요한 계산에서는 그 오차가 보이기 시작합니다. 양자화도 마찬가지로 대부분의 상황에서는 티가 안 나지만, 정밀함이 필요한 순간에는 품질 차이가 나타날 수 있습니다.
+</div>
+
+<div class="card">
+<strong>표기 읽는 법: <code>Q4_K_M</code></strong><br>
+앞의 <code>Q4</code>는 "파라미터를 4비트로 양자화했다"는 뜻이고, 뒤의 <code>K_M</code>은 세부 양자화 방식과 크기 변형을 나타내는 표기입니다 — <code>K</code>·<code>K_M</code>·<code>_0</code> 등은 양자화 세부 알고리즘의 차이이며, 같은 비트 수라면 <code>K_M</code> 계열이 보통 더 안전한 기본값입니다. 실무에서 가장 널리 쓰는 기본값이 바로 <code>Q4_K_M</code>이고, 품질을 조금 더 지키고 싶다면 <code>Q6_K</code>나 <code>Q8_0</code>을 고릅니다.
+</div>
+
+<p>양자화의 효과는 두 가지입니다. 첫째, 파일이 작아지니 <strong>더 작은 VRAM에도 모델이 들어갑니다.</strong> 둘째, 파일이 작아지면 매 토큰을 생성할 때마다 읽어야 하는 메모리 양도 줄어들어 <strong>속도까지 빨라집니다</strong>(모듈 1에서 본 "대역폭 ÷ 모델 크기" 공식을 떠올려 보세요).</p>
+
+<h2><span class="num">03</span>GGUF — 로컬 추론용 표준 포맷</h2>
+
+<p><strong>GGUF</strong>는 llama.cpp 계열 엔진(Ollama, LM Studio 포함)이 읽는 단일 파일 포맷입니다. 양자화를 마친 모델은 대부분 이 포맷으로 배포됩니다.</p>
+
+<p>HuggingFace(모델 파일들이 모여 있는 대표 웹사이트)에서 로컬 실행용 모델을 찾을 때 저장소 이름에 <strong>"GGUF"</strong>가 붙은 것을 받아야 하는 이유가 여기 있습니다. 같은 모델이라도 한 저장소 안에 Q2부터 Q8까지 여러 양자화 버전의 파일이 함께 올라가 있고, <strong>파일 크기가 곧 그 모델을 돌리는 데 필요한 VRAM의 대략적인 기준</strong>이 됩니다.</p>
+
+<h2><span class="num">04</span>필요 VRAM 산식 — 이 계산이 서빙 계획의 절반이다</h2>
+
+<div class="card">
+<strong>필요 VRAM ≈ ① 모델 파일 크기(GGUF 그대로) + ② KV 캐시(컨텍스트 길이·동시 사용자에 비례) + ③ 작업 버퍼(대략 1~2GB)</strong>
+</div>
+
+<p>예를 들어 <strong>8B 모델을 Q4_K_M으로 양자화하면 파일 크기가 약 4.9GB</strong>(계산기는 메타데이터 여유분 5%를 더해 5.0GB로 표시됩니다)입니다. 12GB VRAM 노트북이라면 KV 캐시와 버퍼까지 포함해도 여유 있게 구동되고, 컨텍스트도 넉넉히 잡을 수 있습니다.</p>
+
+<p>반대의 경우도 있습니다. <strong>24GB 서버에 파일 크기 22GB짜리 모델을 올리면</strong>, 파일 자체는 들어가더라도 KV 캐시가 앉을 자리가 거의 남지 않아 컨텍스트를 제대로 잡을 수 없습니다. <strong>"파일이 들어간다"와 "쓸 수 있다"는 서로 다른 이야기</strong>라는 뜻입니다.</p>
+
+<h2><span class="num">05</span>직접 계산해보기 (인터랙티브 계산기)</h2>
+
+<p>위 산식을 그대로 계산기로 옮겼습니다. 값을 바꾸면 바로 다시 계산됩니다. 감을 잡는 기준으로, 컨텍스트 길이는 대략 <strong>A4 1장 ≈ 500~700토큰</strong>으로 환산해 볼 수 있습니다. 그리고 <strong>bpw</strong>(bits per weight, 파라미터 하나당 평균 비트 수)는 <code>K_M</code> 같은 세부 방식에 따라 정수가 아닌 값(예: 4.8)이 붙고, 계산기 결과에는 메타데이터 등 여유분으로 약 5%를 더 얹고, 작업 버퍼는 산식의 1~2GB 범위 중 중간값인 1.5GB로 고정해 계산합니다.</p>
+
+<div class="card calc-card">
+  <div class="calc-row">
+    <label for="calc-params">파라미터 수 (B, 10억 단위)</label>
+    <input type="number" id="calc-params" min="0.1" step="0.1" value="8">
+  </div>
+  <div class="calc-row">
+    <label for="calc-quant">양자화</label>
+    <select id="calc-quant">
+      <option value="16">FP16 (16bpw)</option>
+      <option value="8.5">Q8_0 (8.5bpw)</option>
+      <option value="6.6">Q6_K (6.6bpw)</option>
+      <option value="4.8" selected>Q4_K_M (4.8bpw)</option>
+      <option value="3.9">Q3_K_M (3.9bpw)</option>
+      <option value="2.9">Q2_K (약 2.9bpw — 품질 크게 저하)</option>
+    </select>
+  </div>
+  <div class="calc-row">
+    <label for="calc-ctx">1인당 컨텍스트 길이</label>
+    <select id="calc-ctx">
+      <option value="4">4k 토큰</option>
+      <option value="8" selected>8k 토큰</option>
+      <option value="16">16k 토큰</option>
+      <option value="32">32k 토큰</option>
+      <option value="64">64k 토큰</option>
+    </select>
+  </div>
+  <div class="calc-row">
+    <label for="calc-users">동시 사용자 수</label>
+    <select id="calc-users">
+      <option value="1" selected>1명 (혼자)</option>
+      <option value="2">2명</option>
+      <option value="4">4명</option>
+      <option value="7">7명 (연구회 전원)</option>
+    </select>
+  </div>
+  <div class="calc-row">
+    <label for="calc-kv">KV 캐시 부담 <span style="font-weight:400; color:var(--text-dim); font-size:0.82em">(크고 구형 구조일수록 무거운 쪽 — 모르면 '보통')</span></label>
+    <select id="calc-kv">
+      <option value="0.05">가벼운 모델 (0.05GB / 1k tok)</option>
+      <option value="0.1" selected>보통 (0.1GB / 1k tok)</option>
+      <option value="0.2">무거운 모델 (0.2GB / 1k tok)</option>
+    </select>
+  </div>
+  <div class="calc-row">
+    <label for="calc-gpu">내 GPU 메모리</label>
+    <select id="calc-gpu">
+      <option value="8">8GB</option>
+      <option value="12" selected>12GB</option>
+      <option value="16">16GB</option>
+      <option value="24">24GB</option>
+    </select>
+  </div>
+
+  <div id="calc-result" class="calc-result"></div>
+  <p class="calc-note">※ 이 계산기는 산식을 몸에 붙이기 위한 학습용 근사치입니다. 실전 산정은 정밀도(Precision)·동시 처리(Batch)·컨텍스트 길이(Seq Len)까지 반영하는 <a href="https://apxml.com/tools/vram-calculator" target="_blank" rel="noopener">APX ML VRAM Calculator</a>를 권장하고, 실제 배치 전에는 반드시 실측으로 확정하세요.</p>
+</div>
+
+<div class="further">
+더 정밀한 외부 VRAM 계산기 — 정밀도·배치·시퀀스 길이까지 반영: <a href="https://apxml.com/tools/vram-calculator" target="_blank" rel="noopener">APX ML VRAM Calculator</a> <span class="note">· 위 계산기가 감 잡기용이라면 이쪽은 실전 산정용입니다. "Precision, Batch, Seq Len을 무시하면 성능이 무너진다"는 것이 실무자들의 공통 경험담입니다.</span><br>
+체계적으로 더 배우려면: <a href="https://huggingface.co/learn/llm-course/en/chapter1/1" target="_blank" rel="noopener">Hugging Face LLM Course</a> <span class="note">· 영어(일부 한국어 번역), 무료 실습형 — 양자화·모델 포맷 챕터 포함.</span><br>
+양자화·압축의 최전선(연구 단계): <a href="https://research.google/blog/turboquant-redefining-ai-efficiency-with-extreme-compression/" target="_blank" rel="noopener">Google TurboQuant</a> · <a href="https://arxiv.org/abs/2504.19874" target="_blank" rel="noopener">arXiv</a>
+</div>
+
+<h2><span class="num">06</span>품질은 얼마나 떨어지나</h2>
+
+<p>일반적인 경험칙은 이렇습니다. <strong>요약·분류·추출처럼 범위가 좁은 태스크에서는 Q4_K_M이 원본(FP16)과 체감 차이가 거의 없습니다.</strong> 반면 미세한 논리 전개, 숫자 계산, 긴 추론이 필요한 태스크는 Q6_K나 Q8_0에서 더 안정적인 결과를 보입니다.</p>
+
+<p>하지만 결론은 하나로 모입니다. <strong>소문이 아니라 내 태스크의 골든셋(우리 업무와 비슷한 실제 예시 묶음)으로 원본과 양자화본을 직접 비교하는 것</strong>입니다. 이 비교 방법은 모듈 6(평가)에서 자세히 다룹니다.</p>
+
+<div class="axis-box">
+우리 연구회의 8월 목표가 정확히 이것입니다. 이번 모듈에서 배운 산식으로 각자 '우리 서버(24GB)에 어떤 모델·양자화·컨텍스트 조합이 최적인지'를 먼저 계산해보고, 그 계산을 실측 결과와 대조해 보는 것입니다.
+</div>
+
+<div id="quiz"></div>
+
+<div class="pager">
+  <a href="02-how-llm-works.html"><span class="dir">← 이전</span>모듈 2 · LLM 동작 원리</a>
+  <a class="next" href="04-serving-engines.html"><span class="dir">다음 →</span>모듈 4 · 서빙 엔진</a>
+</div>
+
+</div>
+
+<script>
+function calcVram() {
+  var params = parseFloat(document.getElementById('calc-params').value) || 0;
+  var bpw = parseFloat(document.getElementById('calc-quant').value);
+  var ctxK = parseFloat(document.getElementById('calc-ctx').value);
+  var users = parseFloat(document.getElementById('calc-users').value);
+  var kvCoef = parseFloat(document.getElementById('calc-kv').value);
+  var gpu = parseFloat(document.getElementById('calc-gpu').value);
+
+  var weight = params * bpw / 8 * 1.05;
+  var kv = ctxK * users * kvCoef;
+  var buffer = 1.5;
+  var total = weight + kv + buffer;
+
+  var status, color;
+  if (total <= gpu * 0.85) {
+    status = '여유 있음'; color = 'var(--ok)';
+  } else if (total <= gpu) {
+    status = '빠듯함'; color = '#d97706';
+  } else {
+    status = '들어가지 않음'; color = 'var(--wrong)';
+  }
+
+  var result = document.getElementById('calc-result');
+  var kvDetail = users > 1 ? ' (1인 ' + (ctxK * kvCoef).toFixed(1) + 'GB × ' + users + '명)' : '';
+  result.innerHTML = '모델 무게 ' + weight.toFixed(1) + 'GB + KV 캐시 ' + kv.toFixed(1) + 'GB' + kvDetail + ' + 버퍼 1.5GB = 총 <strong>' + total.toFixed(1) + 'GB</strong> → <span style="color:' + color + '; font-weight:700;">' + status + '</span> (GPU ' + gpu + 'GB 기준)';
+}
+
+['calc-params', 'calc-quant', 'calc-ctx', 'calc-users', 'calc-kv', 'calc-gpu'].forEach(function (id) {
+  var el = document.getElementById(id);
+  el.addEventListener('input', calcVram);
+  el.addEventListener('change', calcVram);
+});
+calcVram();
+</script>
+
+<script>
+const QUIZ = [
+  {
+    "q": "7B(70억 파라미터) 모델을 FP16으로 저장하면 대략 몇 GB인가?",
+    "opts": [
+      "약 3.5GB",
+      "약 7GB",
+      "약 14GB",
+      "약 28GB"
+    ],
+    "a": 2,
+    "wrongWhy": [
+      "3.5GB는 파라미터당 4비트(0.5바이트), 즉 Q4로 양자화했을 때의 크기입니다 — FP16 원본이 아니라 압축본의 숫자입니다.",
+      "7GB는 파라미터당 1바이트, 즉 8비트(Q8급)로 저장한 크기입니다. FP16은 16비트 = 2바이트라 그 두 배입니다.",
+      null,
+      "28GB는 파라미터당 4바이트, 즉 FP32(32비트)로 저장한 크기입니다. 기본 배포 정밀도는 보통 FP16(2바이트)입니다."
+    ],
+    "why": "FP16 = 파라미터당 2바이트이므로 70억 × 2B ≈ 14GB. 보기 네 개가 전부 '비트 수를 무엇으로 잡았느냐'의 차이라는 걸 눈치챘다면 이 모듈을 정확히 이해한 겁니다."
+  },
+  {
+    "q": "Q4_K_M에서 'Q4'가 뜻하는 것은?",
+    "opts": [
+      "파라미터 수를 1/4로 줄인 축소판 모델",
+      "파라미터 하나를 약 4비트로 저장하는 양자화",
+      "GPU 4장에 나눠 싣도록 분할해둔 포맷",
+      "컨텍스트를 4k 토큰으로 제한한 버전"
+    ],
+    "a": 1,
+    "wrongWhy": [
+      "파라미터 수를 줄이는 건 별개 기술(증류·프루닝)입니다. 양자화는 파라미터 '개수'는 그대로 두고 각 숫자의 '저장 정밀도'만 낮춥니다 — 70억 개는 그대로 70억 개입니다.",
+      null,
+      "GPU 분할은 서빙 시점의 옵션(레이어 분할 등)이지 파일 포맷이 아닙니다. 같은 Q4 파일을 1장에도, 2장에 나눠서도 올릴 수 있습니다.",
+      "컨텍스트 한도는 모델 구조와 서빙 설정의 문제입니다. 양자화 등급과는 독립적인 축입니다."
+    ],
+    "why": "양자화는 '개수 축소'가 아니라 '숫자당 비트 축소'입니다. Q4 = 파라미터당 약 4비트 → 파일이 FP16의 약 1/4."
+  },
+  {
+    "q": "양자화하면 메모리 절약뿐 아니라 '속도'까지 빨라지는 이유는?",
+    "opts": [
+      "비트가 줄면 GPU가 더 높은 클럭으로 동작해서",
+      "계산해야 할 레이어(층) 수가 줄어들어서",
+      "토큰마다 읽어야 할 모델 데이터의 양이 줄어서",
+      "KV 캐시도 자동으로 함께 압축되어서"
+    ],
+    "a": 2,
+    "wrongWhy": [
+      "클럭은 하드웨어 설정이라 모델 파일과 무관합니다. 빨라지는 건 GPU가 아니라 '읽을 양'이 줄기 때문입니다.",
+      "레이어 수는 모델 구조라서 양자화해도 그대로입니다. 층수는 같고 각 층의 숫자들이 가벼워질 뿐입니다.",
+      null,
+      "KV 캐시 압축은 별도 옵션(--cache-type 등)으로 따로 켜는 것입니다. 모델 양자화와 KV 양자화는 독립된 두 개의 손잡이입니다."
+    ],
+    "why": "생성 속도 상한 ≈ 대역폭 ÷ 모델 크기(모듈 1)에서 분모가 줄어드는 것입니다. 토큰마다 모델 전체를 읽으니, 모델이 가벼우면 그만큼 빨리 읽습니다."
+  },
+  {
+    "q": "24GB 서버에 파일 22GB짜리 모델이 '실무에서' 곤란한 이유는?",
+    "opts": [
+      "GPU는 용량의 절반까지만 모델에 쓸 수 있어서",
+      "2장에 나누면 각 장마다 22GB가 통째로 필요해서",
+      "KV 캐시와 작업 버퍼가 들어갈 자리가 없어 컨텍스트를 거의 못 잡아서",
+      "운영체제가 VRAM 대부분을 예약해서 실제 가용량이 절반이라서"
+    ],
+    "a": 2,
+    "wrongWhy": [
+      "그런 규칙은 없습니다. 용량 전부를 쓸 수 있지만, 모델 무게 외에 KV 캐시·버퍼도 같은 공간을 써야 한다는 게 진짜 제약입니다.",
+      "레이어 분할은 모델을 '나눠서' 싣습니다 — 2장이면 각 장에 약 11GB씩입니다. 복사가 아니라 분담이라는 게 분할의 핵심입니다.",
+      null,
+      "OS 예약분은 수백 MB 수준입니다. 자리를 잡아먹는 주범은 OS가 아니라 대화 내용을 담는 KV 캐시입니다."
+    ],
+    "why": "필요 VRAM = 모델 무게 + KV 캐시 + 버퍼. 무게만으로 공간이 꽉 차면 정작 대화·문서를 담을 자리가 없습니다 — '파일이 들어간다 ≠ 쓸 수 있다'."
+  },
+  {
+    "q": "양자화로 인한 품질 저하를 판단하는 올바른 방법은?",
+    "opts": [
+      "bpw 숫자가 4 이상이면 품질 저하가 없다고 보면 된다",
+      "모델 제작자가 공개한 벤치마크 점수를 확인한다",
+      "내 태스크의 골든셋으로 원본과 양자화본을 직접 비교한다",
+      "요약·분류 태스크라면 측정 없이 Q4를 써도 된다"
+    ],
+    "a": 2,
+    "wrongWhy": [
+      "bpw는 압축 정도의 지표일 뿐 품질 보증선이 아닙니다. 같은 Q4라도 태스크에 따라 체감이 다릅니다.",
+      "공개 벤치마크는 '남의 문제지' 점수입니다. 우리 민원 요약에서 어떤지는 우리 문제지(골든셋)로만 알 수 있습니다 — 모듈 6의 핵심 원칙입니다.",
+      null,
+      "'요약·분류는 Q4로 충분한 경우가 많다'는 경험칙은 출발점일 뿐입니다. 경험칙을 우리 데이터로 확인하는 것까지가 판단입니다."
+    ],
+    "why": "경험칙과 벤치마크는 후보를 고르는 데 쓰고, 결론은 항상 내 골든셋 실측으로 내립니다. 태스크마다 양자화 민감도가 다르기 때문입니다."
+  }
+];
+</script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/toc.js" defer></script>
+<script src="../assets/gloss.js" defer></script>
+</body>
+</html>
